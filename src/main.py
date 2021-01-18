@@ -35,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--source", type=str, required=True)
 
     parser.add_argument("--transform", action="store_true", default=False)
+    parser.add_argument("--no_aug", action="store_true", default=False)
     parser.add_argument("--image", type=str, default="")
 
     parser.add_argument("--train", action="store_true", default=False)
@@ -52,6 +53,9 @@ if __name__ == "__main__":
 
     raw_path = os.path.join("..", "raw", args.source)
     source_path = os.path.join("..", "data", f"{args.source}.hdf5")
+    if args.no_aug:
+      source_path = os.path.join("..", "data", f"{args.source}_non_augmented.hdf5")
+
     output_path = os.path.join("..", "output", args.source,)
     target_path = os.path.join(output_path, "checkpoint_weights.pt")
 
@@ -67,7 +71,7 @@ if __name__ == "__main__":
         ds.read_partitions()
 
         print("Partitions will be preprocessed...")
-        ds.preprocess_partitions(input_size=input_size)
+        ds.preprocess_partitions(input_size=input_size, no_aug=args.no_aug)
 
         print("Partitions will be saved...")
         os.makedirs(os.path.dirname(source_path), exist_ok=True)

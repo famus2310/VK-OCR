@@ -18,6 +18,7 @@ import html
 import string
 import numpy as np
 import numba as nb
+import matplotlib.pyplot as plt
 
 
 def adjust_to_see(img):
@@ -91,8 +92,7 @@ Preprocess metodology based in:
     16th International Conference on Frontiers in Handwriting Recognition, pp. 256-258, 2018.
 """
 
-
-def preprocess(img, input_size):
+def preprocess(img, input_size, no_aug):
     """Make the process with the `input_size` to the scale resize"""
     cur_path = img
 
@@ -127,8 +127,9 @@ def preprocess(img, input_size):
       f = max((w / wt), (h / ht))
       new_size = (max(min(wt, int(w / f)), 1), max(min(ht, int(h / f)), 1))
 
-      img = illumination_compensation(img)
-      img = remove_cursive_style(img)
+      if not no_aug:
+        img = illumination_compensation(img)
+        img = remove_cursive_style(img)
       img = cv2.resize(img, new_size)
 
       target = np.ones([ht, wt], dtype=np.uint8) * 255
@@ -383,3 +384,62 @@ def text_standardize(text):
 
     return text
 
+# Char segmentation
+def seg_char(img):
+  image = cv2.imread(img) 
+  image = cv2.fastNlMeansDenoisingColored(image,None,10,10,7,21)
+  gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+
+  res,thresh = cv2.threshold(gray,150,255,cv2.THRESH_BINARY_INV) #threshold 
+  kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3)) 
+
+  dilated = cv2.dilate(thresh,kernel,iterations = 5) 
+
+  _, contours, hierarchy = cv2.findContours(dilated,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE) 
+
+  coord = []
+  for contour in contours:  
+      [x,y,w,h] = cv2.boundingRect(contour)   
+      if h < 30 and w < 30:
+        continue
+      if w > 60:
+        coord.append((x,y,w//2,h)) 
+        coord.append((x+w//2,y,w//2,h)) 
+      else:
+        coord.append((x,y,w,h)) 
+
+  coord.sort(key=lambda tup:tup[0]) # if the image has only one sentence sort in one axis
+
+  ht, wt = image.shape[:2]
+  # window_x = cv2.boundingRect(contours[0])[0]
+  # window_y = cv2.boundingRect(contours[0])[1]
+  # window_h = cv2.boundingRect(contours[0])[3]
+  # while True:
+  #   if window_x > wt:
+  #     break
+  #   coord.append((window_x, window_y, min(50, ht - window_x), window_h))
+  #   window_x = window_x + 50
+
+  count = 0
+  last = ()
+  cur_path = img.split('.png')[0]
+  if not os.path.isdir(cur_path):
+    os.mkdir(img.split('.png')[0])
+  ret = []
+  for cor in coord:
+        if last != () and last[0] + last[2] > cor[0]:
+          continue
+        last = cor
+        [x,y,w,h] = cor
+        white = [255,255,255]
+        xa = max(0, x - 10)
+        xb = min(wt, x + w + 10)
+        ya = max(0, y - 10)
+        yb = min(ht, y + h + 10)
+        t = image[ya:yb,xa:xb,:]
+        t = cv2.copyMakeBorder(t,60,60,70,60,cv2.BORDER_CONSTANT,value=white)
+        count = count + 1
+        p = img.split('.png')[0] + "/char_"+str(count)+".png"
+        ret.append(p)
+        cv2.imwrite(p, t)
+  return ret

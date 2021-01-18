@@ -37,7 +37,7 @@ class Dataset():
       self.dataset[y]['dt'] += dataset[y]['dt']
       self.dataset[y]['gt'] += dataset[y]['gt']
 
-  def preprocess_partitions(self, input_size):
+  def preprocess_partitions(self, input_size, no_aug):
     """Preprocess images and sentences from partitions"""
 
     for y in self.partitions:
@@ -56,7 +56,7 @@ class Dataset():
       results = []
       with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
         print(f"Partition: {y}")
-        for result in tqdm(pool.imap(partial(pp.preprocess, input_size=input_size), self.dataset[y]['dt']),
+        for result in tqdm(pool.imap(partial(pp.preprocess, input_size=input_size, no_aug=no_aug), self.dataset[y]['dt']),
                    total=len(self.dataset[y]['dt'])):
           results.append(result)
         pool.close()
@@ -90,8 +90,10 @@ class Dataset():
     for w in word: #word test
       split = w.split()
       img_path = os.path.join(self.source, 'Words', split[0])
-      dataset[self.partitions[3]]['gt'].append(split[1].lower()) 
-      dataset[self.partitions[3]]['dt'].append(img_path)
+      c = pp.seg_char(img_path)
+      for i in c:
+        dataset[self.partitions[3]]['gt'].append(split[1].lower()) 
+        dataset[self.partitions[3]]['dt'].append(i)
     return dataset
 
   @staticmethod
